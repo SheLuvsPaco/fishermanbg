@@ -1,0 +1,25 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Soft water gradient background */
+body {
+  @apply bg-gradient-to-b from-ocean-950 via-ocean-900 to-ocean-800 text-white;
+}
+
+/* Subtle animated overlay for “water shimmer” */
+.water-overlay {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(60% 40% at 50% 10%, rgba(255,255,255,0.06), transparent 60%),
+              radial-gradient(50% 30% at 10% 80%, rgba(255,255,255,0.04), transparent 55%),
+              radial-gradient(50% 30% at 90% 70%, rgba(255,255,255,0.03), transparent 55%);
+  animation: wave 18s ease-in-out infinite;
+  opacity: 0.6;
+}
+
+/* Big, tap-friendly touch targets for non-Gen Z users */
+button, a, .tap {
+  @apply min-h-12 min-w-12;
+}
