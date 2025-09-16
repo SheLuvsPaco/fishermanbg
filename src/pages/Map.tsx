@@ -34,26 +34,22 @@ export default function MapPage() {
   }, []);
 
   return (
-    <div className="h-full w-full">
-      <MapContainer
-        center={[42.7, 25.3]} // Bulgaria center
-        zoom={7}
-        style={{ height: "100%", width: "100%", borderRadius: "12px", boxShadow: "0 4px 20px rgba(0,0,0,0.2)" }}
-        maxBounds={[
-          [41, 22], // Southwest Bulgaria
-          [44.5, 29.5], // Northeast Bulgaria
-        ]}
-      >
-        <TileLayer
-          attribution='&copy; <a href="https://www.openstreetmap.org/">OpenStreetMap</a>'
-          url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
-        />
-
-        {lakes.map((lake) => (
-          <Marker
-            key={lake.id}
-            position={[lake.lat, lake.lng]}
-            icon={waterDropIcon}
+    <div className="h-[calc(100vh-80px)] w-full">
+  <MapContainer
+    center={[42.7, 25.3]}
+    zoom={7}
+    style={{ height: "100%", width: "100%", borderRadius: "12px" }}
+    maxBounds={[
+      [41, 22],
+      [44.5, 29.5],
+    ]}
+  >
+    <TileLayer
+      url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
+      attribution='&copy; <a href="https://www.openstreetmap.org/">OpenStreetMap</a>'
+    />
+  </MapContainer>
+</div>
           >
             <Popup>
               <div className="text-center">
