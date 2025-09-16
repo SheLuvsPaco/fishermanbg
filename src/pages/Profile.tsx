@@ -2,148 +2,138 @@ import React, { useEffect, useState } from "react";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../components/AuthGate";
 
+interface Profile {
+  id: string;
+  username: string | null;
+  profile_pic: string | null;
+  rank: string | null;
+  badges: string[] | null;
+}
+
 const ProfilePage: React.FC = () => {
   const { user } = useAuth();
-  const [username, setUsername] = useState("");
-  const [profilePic, setProfilePic] = useState<string | null>(null);
-  const [rank, setRank] = useState("Rookie Silver Fish");
-  const [badges, setBadges] = useState<string[]>([]);
+  const [profile, setProfile] = useState<Profile | null>(null);
+  const [usernameInput, setUsernameInput] = useState("");
   const [uploading, setUploading] = useState(false);
 
-  // Load profile data on login
+  // Load profile on mount
   useEffect(() => {
     if (!user) return;
-    const loadProfile = async () => {
+    (async () => {
       const { data, error } = await supabase
         .from("profiles")
-        .select("username, profile_pic, rank, badges")
+        .select("*")
         .eq("id", user.id)
         .maybeSingle();
-
       if (error) {
-        console.error("Profile load error:", error.message);
+        console.error("Error loading profile:", error.message);
         return;
       }
-
       if (data) {
-        setUsername(data.username || "");
-        setProfilePic(data.profile_pic);
-        setRank(data.rank || "Rookie Silver Fish");
-        setBadges(data.badges || []);
-      } else {
-        // Create new row if it doesn’t exist
-        const { error: insertError } = await supabase
-          .from("profiles")
-          .insert([{ id: user.id, username: "", rank: "Rookie Silver Fish", badges: [] }]);
-
-        if (insertError) {
-          console.error("Error creating profile:", insertError.message);
-        }
+        setProfile(data as Profile);
+        setUsernameInput(data.username ?? "");
       }
-    };
-    loadProfile();
+    })();
   }, [user]);
 
-  // Upload profile picture
+  // Upload avatar
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    try {
-      if (!user) return;
-      const file = e.target.files?.[0];
-      if (!file) return;
+    if (!user || !profile) return;
+    const file = e.target.files?.[0];
+    if (!file) return;
 
-      setUploading(true);
-      const filePath = `avatars/${user.id}-${Date.now()}-${file.name}`;
+    setUploading(true);
+    const filePath = `avatars/${user.id}-${Date.now()}-${file.name}`;
+    const { error: uploadError } = await supabase.storage
+      .from("avatars")
+      .upload(filePath, file, { upsert: true });
 
-      // Upload file
-      const { error: uploadError } = await supabase.storage
-        .from("avatars")
-        .upload(filePath, file, { upsert: true });
-
-      if (uploadError) throw uploadError;
-
-      // Get public URL
+    if (uploadError) {
+      console.error("Upload error:", uploadError.message);
+    } else {
       const { data } = supabase.storage.from("avatars").getPublicUrl(filePath);
-      const publicUrl = data.publicUrl;
-
-      // Save to profile
-      const { error: updateError } = await supabase
+      const avatarUrl = data?.publicUrl ?? null;
+      await supabase
         .from("profiles")
-        .update({ profile_pic: publicUrl })
+        .update({ profile_pic: avatarUrl })
         .eq("id", user.id);
-
-      if (updateError) throw updateError;
-
-      setProfilePic(publicUrl);
-    } catch (err) {
-      console.error("Upload error:", err);
-    } finally {
-      setUploading(false);
+      setProfile({ ...profile, profile_pic: avatarUrl });
     }
+    setUploading(false);
   };
 
   // Save username
-  const handleSave = async () => {
-    if (!user) return;
+  const handleSaveName = async () => {
+    if (!user || !profile) return;
     const { error } = await supabase
       .from("profiles")
-      .update({ username })
+      .update({ username: usernameInput })
       .eq("id", user.id);
-
     if (error) {
       console.error("Error saving username:", error.message);
     } else {
+      setProfile({ ...profile, username: usernameInput });
       alert("Потребителското име е запазено успешно!");
     }
   };
 
-  return (
-    <div className="max-w-md mx-auto p-6 text-center">
-      <h1 className="text-2xl font-bold mb-4">Моят профил</h1>
+  if (!profile) {
+    return <div className="p-6 text-center">Зареждане на профила…</div>;
+  }
 
-      <div className="mb-4">
-        {profilePic ? (
+  return (
+    <div className="max-w-md mx-auto mt-8 p-6 bg-ocean-900/70 border border-white/10 rounded-xl">
+      {/* Avatar + username */}
+      <div className="flex flex-col items-center mb-4">
+        {profile.profile_pic ? (
           <img
-            src={profilePic}
-            alt="Profile"
-            className="w-24 h-24 rounded-full mx-auto object-cover"
+            src={profile.profile_pic}
+            alt="avatar"
+            className="w-24 h-24 rounded-full object-cover border-2 border-ocean-500"
           />
         ) : (
-          <div className="w-24 h-24 bg-gray-300 rounded-full mx-auto flex items-center justify-center">
+          <div className="w-24 h-24 rounded-full bg-gray-500 flex items-center justify-center text-white">
             No Pic
           </div>
         )}
+        {profile.username && (
+          <h2 className="mt-2 text-xl font-semibold">{profile.username}</h2>
+        )}
       </div>
 
+      {/* File input */}
       <input
         type="file"
         accept="image/*"
-        onChange={handleFileChange}
         disabled={uploading}
-        className="mb-4"
+        onChange={handleFileChange}
+        className="mb-4 w-full"
       />
 
+      {/* Username edit */}
+      <label className="block mb-1 text-sm">Потребителско име</label>
       <input
         type="text"
-        value={username}
-        onChange={(e) => setUsername(e.target.value)}
-        placeholder="Потребителско име"
-        className="border p-2 w-full mb-4"
+        value={usernameInput}
+        onChange={(e) => setUsernameInput(e.target.value)}
+        className="w-full p-2 mb-2 rounded text-black"
+        placeholder="Въведи ново потребителско име"
       />
-
       <button
-        onClick={handleSave}
-        className="bg-blue-500 text-white px-4 py-2 rounded"
+        onClick={handleSaveName}
+        className="w-full py-2 rounded bg-ocean-500 hover:bg-ocean-600 transition text-white font-semibold"
       >
         Запази име
       </button>
 
-      <div className="mt-4 text-left">
-        <p>
-          <strong>Ранг:</strong> {rank}
-        </p>
+      {/* Rank & Badges */}
+      <div className="mt-6 text-white space-y-1">
+        <p><strong>Ранг:</strong> {profile.rank ?? "Rookie Silver Fish"}</p>
         <p>
           <strong>Баджове:</strong>{" "}
-          {badges && badges.length > 0 ? badges.join(", ") : "Няма"}
+          {profile.badges && profile.badges.length > 0
+            ? profile.badges.join(", ")
+            : "Няма"}
         </p>
       </div>
     </div>
