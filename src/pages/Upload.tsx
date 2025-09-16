@@ -1,89 +1,164 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabase";
 
-export default function UploadPage() {
-  const [caption, setCaption] = useState("");
+interface Lake {
+  id: string;
+  name: string;
+}
+
+export default function UploadCatch() {
+  const [lakes, setLakes] = useState<Lake[]>([]);
   const [lakeId, setLakeId] = useState("");
-  const [photo, setPhoto] = useState<File | null>(null);
-  const [status, setStatus] = useState("");
+  const [search, setSearch] = useState("");
+  const [description, setDescription] = useState("");
+  const [fishType, setFishType] = useState("");
+  const [weight, setWeight] = useState<number | "">("");
+  const [file, setFile] = useState<File | null>(null);
+  const [uploading, setUploading] = useState(false);
 
+  // Load lakes from Supabase
+  useEffect(() => {
+    const fetchLakes = async () => {
+      const { data, error } = await supabase.from("lakes").select("id, name");
+      if (error) console.error(error);
+      else setLakes(data || []);
+    };
+    fetchLakes();
+  }, []);
+
+  // Upload catch
   const handleUpload = async () => {
-    if (!photo || !lakeId) {
-      setStatus("Моля, избери снимка и езеро.");
+    if (!lakeId || !fishType || !weight || !file) {
+      alert("Моля попълнете всички полета!");
       return;
     }
 
-    setStatus("Качване...");
+    try {
+      setUploading(true);
+      const filePath = `catches/${Date.now()}-${file.name}`;
+      const { error: uploadError } = await supabase.storage
+        .from("catches")
+        .upload(filePath, file);
 
-    const fileName = `${Date.now()}-${photo.name}`;
-    const { error: uploadError } = await supabase.storage
-      .from("catches")
-      .upload(fileName, photo);
+      if (uploadError) throw uploadError;
 
-    if (uploadError) {
-      setStatus("Грешка при качване на снимката.");
-      return;
-    }
+      const { data } = supabase.storage.from("catches").getPublicUrl(filePath);
+      const publicUrl = data.publicUrl;
 
-    const { data: publicUrlData } = supabase.storage
-      .from("catches")
-      .getPublicUrl(fileName);
+      const { error: insertError } = await supabase.from("catches").insert([
+        {
+          lake_id: lakeId,
+          description,
+          fish_type: fishType,
+          weight,
+          image_url: publicUrl,
+        },
+      ]);
 
-    const { error: insertError } = await supabase.from("catches").insert([
-      {
-        user_id: (await supabase.auth.getUser()).data.user?.id,
-        lake_id: lakeId,
-        caption,
-        photo_url: publicUrlData.publicUrl,
-        points: 10,
-      },
-    ]);
+      if (insertError) throw insertError;
 
-    if (insertError) {
-      setStatus("Грешка при запис в базата.");
-      console.error(insertError);
-    } else {
-      setStatus("Успешно качено!");
-      setCaption("");
+      alert("Уловът е качен успешно! 🎣");
       setLakeId("");
-      setPhoto(null);
+      setFishType("");
+      setWeight("");
+      setDescription("");
+      setFile(null);
+    } catch (err) {
+      console.error("Upload error:", err);
+    } finally {
+      setUploading(false);
     }
   };
 
   return (
-    <div className="p-6">
-      <h1 className="text-2xl font-bold mb-4">Качи улов</h1>
+    <div className="max-w-lg mx-auto bg-white shadow-lg rounded-lg p-6 mt-6">
+      <h1 className="text-2xl font-bold text-center mb-6 text-blue-600">
+        Качи улов
+      </h1>
 
-      <input
-        type="text"
-        placeholder="ID на езеро"
-        value={lakeId}
-        onChange={(e) => setLakeId(e.target.value)}
-        className="w-full mb-3 px-3 py-2 rounded-xl text-black"
-      />
+      {/* Searchable lake dropdown */}
+      <div className="mb-4">
+        <label className="block font-medium mb-2">Избери езеро</label>
+        <input
+          type="text"
+          placeholder="Търси езеро..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="border rounded p-2 w-full mb-2"
+        />
+        <div className="max-h-32 overflow-y-auto border rounded">
+          {lakes
+            .filter((lake) =>
+              lake.name.toLowerCase().includes(search.toLowerCase())
+            )
+            .map((lake) => (
+              <div
+                key={lake.id}
+                onClick={() => {
+                  setLakeId(lake.id);
+                  setSearch(lake.name);
+                }}
+                className={`p-2 cursor-pointer hover:bg-blue-100 ${
+                  lakeId === lake.id ? "bg-blue-200" : ""
+                }`}
+              >
+                {lake.name}
+              </div>
+            ))}
+        </div>
+      </div>
 
-      <textarea
-        placeholder="Описание / коментар"
-        value={caption}
-        onChange={(e) => setCaption(e.target.value)}
-        className="w-full mb-3 px-3 py-2 rounded-xl text-black"
-      />
+      {/* Fish type */}
+      <div className="mb-4">
+        <label className="block font-medium mb-2">Вид риба</label>
+        <input
+          type="text"
+          value={fishType}
+          onChange={(e) => setFishType(e.target.value)}
+          placeholder="Пример: Шаран, Пъстърва..."
+          className="border rounded p-2 w-full"
+        />
+      </div>
 
-      <input
-        type="file"
-        accept="image/*"
-        onChange={(e) => setPhoto(e.target.files?.[0] || null)}
-        className="mb-3"
-      />
+      {/* Weight */}
+      <div className="mb-4">
+        <label className="block font-medium mb-2">Тегло (кг)</label>
+        <input
+          type="number"
+          value={weight}
+          onChange={(e) => setWeight(Number(e.target.value))}
+          placeholder="Например: 2.5"
+          className="border rounded p-2 w-full"
+        />
+      </div>
+
+      {/* Description */}
+      <div className="mb-4">
+        <label className="block font-medium mb-2">Описание / коментар</label>
+        <textarea
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
+          placeholder="Опиши улова..."
+          className="border rounded p-2 w-full"
+        />
+      </div>
+
+      {/* File upload */}
+      <div className="mb-4">
+        <input
+          type="file"
+          accept="image/*"
+          onChange={(e) => setFile(e.target.files?.[0] || null)}
+        />
+      </div>
 
       <button
         onClick={handleUpload}
-        className="w-full bg-ocean-500 text-white font-semibold rounded-xl py-3 hover:bg-ocean-600 transition"
+        disabled={uploading}
+        className="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700"
       >
-        Качи
+        {uploading ? "Качване..." : "Качи"}
       </button>
-
-      {status && <p className="mt-3 text-white">{status}</p>}
     </div>
   );
 }
