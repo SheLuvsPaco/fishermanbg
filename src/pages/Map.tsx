@@ -48,7 +48,7 @@ const MapPage: React.FC = () => {
   }
 
   return (
-    <div className="h-screen w-full">
+    <div className="h-screen w-full pb-20">
       <MapContainer center={[42.7339, 25.4858]} zoom={7} style={{ height: "100%", width: "100%" }}>
         <TileLayer
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
