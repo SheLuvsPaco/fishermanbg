@@ -6,9 +6,10 @@ import "leaflet/dist/leaflet.css";
 
 // Custom water drop icon
 const waterDropIcon = new L.Icon({
-  iconUrl: "https://cdn-icons-png.flaticon.com/512/2907/2907253.png",
+  iconUrl: "https://cdn-icons-png.flaticon.com/512/684/684908.png", // stable water drop
   iconSize: [32, 32],
   iconAnchor: [16, 32],
+  popupAnchor: [0, -32],
 });
 
 interface Lake {
@@ -29,7 +30,7 @@ export default function MapPage() {
     const fetchLakes = async () => {
       const { data, error } = await supabase.from("lakes").select("*");
       if (error) {
-        console.error("Error fetching lakes:", error.message);
+        console.error("Error fetching lakes:", error);
       } else {
         setLakes(data || []);
       }
@@ -38,19 +39,20 @@ export default function MapPage() {
   }, []);
 
   return (
-    <div className="h-[calc(100vh-80px)] w-full p-4">
+    <div className="h-[calc(100vh-80px)] w-full">
       <MapContainer
-        center={[42.7, 25.3]} // Center of Bulgaria
+        center={[42.7, 25.3]} // Center on Bulgaria
         zoom={7}
         style={{ height: "100%", width: "100%", borderRadius: "12px" }}
         maxBounds={[
-          [41, 22], // Southwest corner
-          [44.5, 29.5], // Northeast corner
+          [41, 22],
+          [44.5, 29.5],
         ]}
       >
+        {/* Nature-style topo map */}
         <TileLayer
-          url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
-          attribution='&copy; <a href="https://www.openstreetmap.org/">OpenStreetMap</a>'
+          url="https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png"
+          attribution='Map data: &copy; <a href="https://www.openstreetmap.org/">OpenStreetMap</a> contributors, <a href="https://opentopomap.org">OpenTopoMap</a>'
         />
 
         {lakes.map((lake) => (
@@ -74,13 +76,13 @@ export default function MapPage() {
                   🎣 <strong>Риби:</strong>{" "}
                   {lake.fish_types?.length > 0
                     ? lake.fish_types.join(", ")
-                    : "Няма информация"}
+                    : "Няма"}
                 </p>
                 <p className="text-xs">
                   🪱 <strong>Стръв:</strong>{" "}
                   {lake.best_baits?.length > 0
                     ? lake.best_baits.join(", ")
-                    : "Няма информация"}
+                    : "Няма"}
                 </p>
               </div>
             </Popup>
